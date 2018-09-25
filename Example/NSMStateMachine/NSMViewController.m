@@ -32,23 +32,30 @@
 - (void)viewDidLoad
 {
     [super viewDidLoad];
-    NSOperationQueue *queue = [[NSOperationQueue alloc] init];
-    queue.maxConcurrentOperationCount = 1;
+}
+
+- (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    [self test];
+}
+
+- (void)test {
+    NSOperationQueue *operationQueue = [[NSOperationQueue alloc] init];
+    operationQueue.maxConcurrentOperationCount = 4;
     
-    for (NSInteger i = 0; i < 5; i++) {
-        NSOperation *op = [NSBlockOperation blockOperationWithBlock:^{
-            sleep(arc4random_uniform(4));
-            NSMSMLogDebug(@"%zd", i);
-        }];
-        op.name = @(i).stringValue;
-        [queue nsm_addOperation:op];
-        NSMSMLogDebug(@"dependencies %@", op.dependencies);
+    for (NSInteger i = 0; i < 10; i++) {
+        [operationQueue nsm_addOperation:[NSBlockOperation blockOperationWithBlock:^{
+            NSLog(@"task%@ begin", @(i));
+            [NSThread sleepForTimeInterval:arc4random_uniform(3)];
+            //                NSLog(@"task%@ end", @(i));
+        }]];
     }
     
-    NSOperation *insertedOperation = [NSBlockOperation blockOperationWithBlock:^{
-        NSMSMLogDebug(@"10");
-    }];
-    [queue nsm_addOperationAtFrontOfQueue:insertedOperation];
+    
+    [operationQueue nsm_addOperationAtFrontOfQueue:[NSBlockOperation blockOperationWithBlock:^{
+        NSLog(@"task%@ begin", @(10));
+        [NSThread sleepForTimeInterval:arc4random_uniform(4)];
+        //            NSLog(@"task%@ end", @(10));
+    }]];
 }
 
 - (void)didReceiveMemoryWarning

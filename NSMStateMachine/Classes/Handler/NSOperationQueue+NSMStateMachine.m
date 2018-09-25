@@ -26,51 +26,41 @@
 @implementation NSOperationQueue (NSMStateMachine)
 
 - (void)nsm_addOperationAtFrontOfQueue:(NSOperation *)op {
-    @synchronized (self) {
-        BOOL wasSuspended = self.isSuspended;
-        self.suspended = YES;
-        NSArray *operations = self.operations;
-        [operations enumerateObjectsUsingBlock:^(NSOperation* operation, NSUInteger idx, BOOL *stop) {
-            if(![operation isExecuting]){
-                [operation addDependency:op];
-                *stop = YES;
+    NSArray *operations = self.operations;
+    [operations enumerateObjectsUsingBlock:^(NSOperation* operation, NSUInteger idx, BOOL *stop) {
+        if(![operation isExecuting]){
+            if (operation.dependencies.count > 0) {
+                [operation.dependencies enumerateObjectsUsingBlock:^(NSOperation * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+                    [operation removeDependency:obj];
+                }];
             }
-        }];
-        [self addOperation:op];
-        self.suspended = wasSuspended;
-    }
+            [operation addDependency:op];
+            *stop = YES;
+        }
+    }];
+    [self addOperation:op];
 }
 
 - (void)nsm_addOperation:(NSOperation *)op {
-    @synchronized (self) {
-        BOOL wasSuspended = self.isSuspended;
-        self.suspended = YES;
-        NSInteger maxOperations = ([self maxConcurrentOperationCount] > 0) ? [self maxConcurrentOperationCount]: INT_MAX;
-        NSArray *operations = [self operations];
-        NSInteger index = [operations count] - maxOperations;
-        if (index >= 0) {
-            NSOperation *operation = operations[index];
-            if (![operation isExecuting]) {
-                [op addDependency:operation];
-            }
+    NSArray *operations = [self operations];
+    NSInteger maxOperations = ([self maxConcurrentOperationCount] > 0) ? [self maxConcurrentOperationCount]: INT_MAX;
+    NSInteger remain = [operations count] - maxOperations;
+    if (remain >= 0) {
+        NSOperation *operation = operations.lastObject;
+        if (![operation isExecuting]) {
+            [op addDependency:operation];
         }
-        [self addOperation:op];
-        self.suspended = wasSuspended;
     }
+    [self addOperation:op];
 }
 
 - (void)nsm_removeOperationWithType:(NSInteger)type {
-    @synchronized (self) {
-        BOOL wasSuspended = self.isSuspended;
-        self.suspended = YES;
-        NSArray *operations = self.operations;
-        [operations enumerateObjectsUsingBlock:^(NSMMessageOperation* operation, NSUInteger idx, BOOL *stop){
-            if(type == operation.message.messageType) {
-                [operation cancel];
-            }
-        }];
-        self.suspended = wasSuspended;
-    }
+    NSArray *operations = self.operations;
+    [operations enumerateObjectsUsingBlock:^(NSMMessageOperation* operation, NSUInteger idx, BOOL *stop){
+        if(type == operation.message.messageType) {
+            [operation cancel];
+        }
+    }];
 }
 
 @end
