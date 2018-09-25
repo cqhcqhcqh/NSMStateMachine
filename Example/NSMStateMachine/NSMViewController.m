@@ -46,15 +46,14 @@
         [operationQueue nsm_addOperation:[NSBlockOperation blockOperationWithBlock:^{
             NSLog(@"task%@ begin", @(i));
             [NSThread sleepForTimeInterval:arc4random_uniform(3)];
-            //                NSLog(@"task%@ end", @(i));
+            //NSLog(@"task%@ end", @(i));
         }]];
     }
-    
     
     [operationQueue nsm_addOperationAtFrontOfQueue:[NSBlockOperation blockOperationWithBlock:^{
         NSLog(@"task%@ begin", @(10));
         [NSThread sleepForTimeInterval:arc4random_uniform(4)];
-        //            NSLog(@"task%@ end", @(10));
+        //NSLog(@"task%@ end", @(10));
     }]];
 }
 
