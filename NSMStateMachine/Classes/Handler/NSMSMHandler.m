@@ -213,17 +213,17 @@
         while (true) {
             //A-C-E-H ==> A-C-G-I
             
-            //1、根据目的状态,构建临时状态栈[I,G,nil,nil],根据目的状态向上追溯父状态,返回第一个没有被激活的父状态
+            //1、根据目的状态 I 向上追溯父状态, 返回第一个已被激活的父状态 C, 并且构建临时状态栈 [I, G, some, some]，这个第一个被激活的父状态 C 就是两个栈的第一个共有父节点
             NSMStateInfo *commonStateInfo = [self setupTempStateStackWithStatesToEnter:tempDestState];
             NSMSMLogDebug(@"Common state info:%@", NSStringFromClass(commonStateInfo.state.class));
             
-            //2、状态栈依次退出H-E变成A-C,调整状态栈栈顶的Index,此例中:指向C的位置,也就是1。状态栈的那个数组还是A-C-E-H,只不过H/E的active已经被至为NO,并且调用了对应状态的Enter方法
+            //2、从状态栈的栈顶 H 到目标节点 C 的所有中间节点（H-E 除目标节点 C）依次将节点状态 active 置为 NO，并且调整状态栈栈顶的值，此例中栈顶的值就变成了 1（指向节点 C 的位置）
             [self invokeExitMethods:commonStateInfo];
             
-            //3、将临时状态栈中的状态倒序存放到状态栈中-->状态栈中的状态就变成了 A-C-G-I(状态栈的那个数组实际上此时才发生了变化),return出需要第一个需要Enter状态的Index
+            //3、将临时状态栈中 [I, G, some, some] 的状态倒序存放到状态栈中 --> 状态栈中的状态就变成了 A-C-G-I, 并且调整状态栈栈顶的值（此例中将栈顶值调整为3(指向节点 I 的位置)），而且返回调整前的状态栈栈顶值 + 1（stateStackTopIndex + 1），(此例中 return 2(指定节点 G 的位置)）
             NSInteger stateStackEnteringIndex = [self moveTempStateStackToStateStack];
             
-            //4、将状态栈中的所有状态对应的状态节点[StateInfo:State的一种包装]的active设定为true,然后还需要调用状态的Enter方法
+            //4、将上一步的返回值到当前栈顶的所有中间节点依次将节点的状态 active 置为 YES，（此例中将 [2,3] 对应的所有中间节点 [G, I] 的 active 置为 YES）
             [self invokeEnterMethods:stateStackEnteringIndex];
             
             //5、保证deferredArray中的message在切换到下一个状态时,优先解决~~~
@@ -306,7 +306,7 @@
  *  [A,C,E,H] => [A,C,G,I]
  
  *  临时状态栈构建成[I,G,nil,nil]
- *  return C(目的状态 向上追溯状态的第一个没有被激活的父状态)
+ *  return C(目的状态 向上追溯状态的第一个被激活的父状态)
  
  */
 - (NSMStateInfo *)setupTempStateStackWithStatesToEnter:(NSMState *)destState {
@@ -403,6 +403,9 @@
 
 /**
  *  构造状态树
+ * Add a new state to the state machine. Bottom up addition
+ * of states is allowed but the same state may only exist
+ * in one hierarchy.
  *
  *  @param state       子状态
  *  @param parentState 父状态
@@ -415,6 +418,7 @@
     if (parentState != nil) {
         parentStateInfo = self.mapStateInfo[NSStringFromClass(parentState.class)];
         if (parentStateInfo == nil) {
+            // Recursively add our parent as it's not been added yet
             parentStateInfo = [self addState:parentState parentState:nil];
         }
     }
@@ -425,8 +429,9 @@
         [self.mapStateInfo setObject:stateInfo forKey:NSStringFromClass(state.class)];
     }
     
+    // Validate that we aren't adding the same state in two different hierarchies.
     if (stateInfo.parentStateInfo != nil && stateInfo.parentStateInfo != parentStateInfo) {
-        
+        NSAssert(NO, @"state already added");
     }
     
     stateInfo.parentStateInfo = parentStateInfo;
